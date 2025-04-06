@@ -48,6 +48,7 @@ struct LTC {
 		detM = abs(glm::determinant(M));
 	}
 
+
 	float eval(const vec3& L) const
 	{
 		vec3 Loriginal = normalize(invM * L);

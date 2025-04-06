@@ -1,5 +1,10 @@
 // fitLTC.cpp : Defines the entry point for the console application.
 //
+
+// fix error C2872: "byte": ambiguous symbol
+// https://developercommunity.visualstudio.com/t/error-c2872-byte-ambiguous-symbol/93889
+#include <windows.h>
+
 #include <glm/glm.hpp>
 using namespace glm;
 
@@ -19,13 +24,14 @@ using namespace glm;
 #include "plot.h"
 
 // size of precomputed table (theta, alpha)
-const int N = 64;
+const int N = 64; // 8
 // number of samples used to compute the error during fitting
 const int Nsample = 32;
 // minimal roughness (avoid singularities)
 const float MIN_ALPHA = 0.00001f;
 
 const float pi = acosf(-1.0f);
+
 
 // computes
 // * the norm (albedo) of the BRDF
@@ -38,7 +44,7 @@ void computeAvgTerms(const Brdf& brdf, const vec3& V, const float alpha,
     fresnel = 0.0f;
     averageDir = vec3(0, 0, 0);
 
-    for (int j = 0; j < Nsample; ++j)
+  for (int j = 0; j < Nsample; ++j)
     for (int i = 0; i < Nsample; ++i)
     {
         const float U1 = (i + 0.5f)/Nsample;
@@ -79,7 +85,7 @@ float computeError(const LTC& ltc, const Brdf& brdf, const vec3& V, const float 
 {
     double error = 0.0;
 
-    for (int j = 0; j < Nsample; ++j)
+  for (int j = 0; j < Nsample; ++j)
     for (int i = 0; i < Nsample; ++i)
     {
         const float U1 = (i + 0.5f)/Nsample;
@@ -182,16 +188,16 @@ void fit(LTC& ltc, const Brdf& brdf, const vec3& V, const float alpha, const flo
 // fit data
 void fitTab(mat3* tab, vec2* tabMagFresnel, const int N, const Brdf& brdf)
 {
-    LTC ltc;
+  LTC ltc;
 
-    // loop over theta and alpha
-    for (int a = N - 1; a >=     0; --a)
-    for (int t =     0; t <= N - 1; ++t)
+  // loop over theta and alpha
+  for (int a = N - 1; a >=     0; --a) // roughness
+    for (int t =     0; t <= N - 1; ++t) // view angle
     {
         // parameterised by sqrt(1 - cos(theta))
         float x = t/float(N - 1);
-        float ct = 1.0f - x*x;
-        float theta = std::min<float>(1.57f, acosf(ct));
+        float cos_theta = 1.0f - x*x;
+        float theta = std::min<float>(1.57f, acosf(cos_theta));
         const vec3 V = vec3(sinf(theta), 0, cosf(theta));
 
         // alpha = roughness^2
@@ -202,8 +208,10 @@ void fitTab(mat3* tab, vec2* tabMagFresnel, const int N, const Brdf& brdf)
         cout << "alpha = " << alpha << "\t theta = " << theta << endl;
         cout << endl;
 
+
         vec3 averageDir;
         computeAvgTerms(brdf, V, alpha, ltc.magnitude, ltc.fresnel, averageDir);
+
 
         bool isotropic;
 
@@ -247,6 +255,7 @@ void fitTab(mat3* tab, vec2* tabMagFresnel, const int N, const Brdf& brdf)
             isotropic = false;
         }
 
+
         // 2. fit (explore parameter space and refine first guess)
         float epsilon = 0.05f;
         fit(ltc, brdf, V, alpha, epsilon, isotropic);
@@ -268,6 +277,7 @@ void fitTab(mat3* tab, vec2* tabMagFresnel, const int N, const Brdf& brdf)
         cout << endl;
     }
 }
+
 
 float sqr(float x)
 {
@@ -336,6 +346,7 @@ void genSphereTab(float* tabSphere, int N)
     }
 }
 
+
 void packTab(
     vec4* tex1, vec4* tex2,
     const mat3*  tab,
@@ -364,6 +375,7 @@ void packTab(
     }
 }
 
+
 int main(int argc, char* argv[])
 {
     // BRDF to fit
@@ -376,11 +388,13 @@ int main(int argc, char* argv[])
     vec2*  tabMagFresnel = new vec2[N*N];
     float* tabSphere = new float[N*N];
 
+
     // fit
     fitTab(tab, tabMagFresnel, N, brdf);
 
     // projected solid angle of a spherical cap, clipped to the horizon
     genSphereTab(tabSphere, N);
+
 
     // pack tables (texture representation)
     vec4* tex1 = new vec4[N*N];
@@ -394,7 +408,7 @@ int main(int argc, char* argv[])
     writeJS(tex1, tex2, N);
 
     // spherical plots
-    // make_spherical_plots(brdf, tab, N);
+    //make_spherical_plots(brdf, tab, N);
 
     // delete data
     delete[] tab;
